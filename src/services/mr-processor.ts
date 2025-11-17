@@ -118,7 +118,7 @@ export const processSingleMR = async (
     }
   } finally {
     try {
-      // await gitlabClient.addAiReviewLabel(gitlabDeps, projectId, mr.iid, aiReviewLabel);
+      await gitlabClient.addAiReviewLabel(gitlabDeps, projectId, mr.iid, aiReviewLabel);
     } catch (labelError) {
       console.error(`라벨 추가 실패:`, labelError);
     }
