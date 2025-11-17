@@ -1,8 +1,17 @@
-import type { GitLabDependencies, OllamaDependencies } from "../types/dependencies.js";
+import type { GitLabDependencies, OllamaDependencies, OpenAIDependencies, CodexDependencies } from "../types/dependencies.js";
 import type { MergeRequest } from "../types/gitlab.js";
+import type { LLMProvider } from "../types/llm.js";
+import { LLM_PROVIDERS } from "../constants/llm-providers.js";
 import * as gitlabClient from "./gitlab-client.js";
 import * as ollamaClient from "./ollama-client.js";
+import * as openaiClient from "./openai-client.js";
+import * as codexClient from "./codex-client.js";
 import { buildReviewPrompt } from "../utils/prompt-builder.js";
+
+/**
+ * LLM 클라이언트 타입 (Ollama, OpenAI, 또는 Codex)
+ */
+export type LLMDependencies = OllamaDependencies | OpenAIDependencies | CodexDependencies;
 
 /**
  * 처리 중인 MR을 추적하기 위한 상태
@@ -44,10 +53,11 @@ ${error.message}
  */
 export const processSingleMR = async (
   gitlabDeps: GitLabDependencies,
-  ollamaDeps: OllamaDependencies,
+  llmDeps: LLMDependencies,
+  llmProvider: LLMProvider,
   projectId: string,
   aiReviewLabel: string,
-  ollamaModel: string,
+  llmModel: string,
   mr: MergeRequest,
   state: ProcessingState
 ): Promise<void> => {
@@ -65,7 +75,7 @@ export const processSingleMR = async (
 
     console.log(`✓ ${changes.length}개의 파일 변경 발견`);
 
-    // diff 크기 로깅 (스트리밍 모드는 크기 제한 없음)
+    // diff 크기 로깅
     const totalDiffSize = changes.reduce((sum, c) => sum + c.diff.length, 0);
     const sizeInKB = (totalDiffSize / 1024).toFixed(1);
     console.log(`📊 전체 diff 크기: ${sizeInKB}KB`);
@@ -73,12 +83,29 @@ export const processSingleMR = async (
     const prompt = buildReviewPrompt(mr, changes);
 
     console.log(`🔄 스트리밍 모드로 AI 리뷰 요청 중...`);
-    const review = await ollamaClient.queryOllamaModelStream(
-      ollamaDeps,
-      ollamaModel,
-      prompt,
-      () => {} // 청크는 무시하고 전체 응답만 수집
-    );
+    
+    let review: string;
+    if (llmProvider === LLM_PROVIDERS.OLLAMA) {
+      review = await ollamaClient.queryOllamaModelStream(
+        llmDeps as OllamaDependencies,
+        llmModel,
+        prompt,
+        () => {} // 청크는 무시하고 전체 응답만 수집
+      );
+    } else if (llmProvider === LLM_PROVIDERS.OPENAI) {
+      review = await openaiClient.queryOpenAIModelStream(
+        llmDeps as OpenAIDependencies,
+        llmModel,
+        prompt,
+        () => {} // 청크는 무시하고 전체 응답만 수집
+      );
+    } else {
+      review = await codexClient.queryCodexModelStream(
+        llmDeps as CodexDependencies,
+        prompt,
+        () => {} // 청크는 무시하고 전체 응답만 수집
+      );
+    }
 
     await gitlabClient.addComment(gitlabDeps, projectId, mr.iid, review);
 
@@ -91,7 +118,7 @@ export const processSingleMR = async (
     }
   } finally {
     try {
-      await gitlabClient.addAiReviewLabel(gitlabDeps, projectId, mr.iid, aiReviewLabel);
+      // await gitlabClient.addAiReviewLabel(gitlabDeps, projectId, mr.iid, aiReviewLabel);
     } catch (labelError) {
       console.error(`라벨 추가 실패:`, labelError);
     }
@@ -104,10 +131,11 @@ export const processSingleMR = async (
  */
 export const processMergeRequests = async (
   gitlabDeps: GitLabDependencies,
-  ollamaDeps: OllamaDependencies,
+  llmDeps: LLMDependencies,
+  llmProvider: LLMProvider,
   projectId: string,
   aiReviewLabel: string,
-  ollamaModel: string,
+  llmModel: string,
   state: ProcessingState
 ): Promise<void> => {
   try {
@@ -128,7 +156,7 @@ export const processMergeRequests = async (
         continue;
       }
 
-      await processSingleMR(gitlabDeps, ollamaDeps, projectId, aiReviewLabel, ollamaModel, mr, state);
+      await processSingleMR(gitlabDeps, llmDeps, llmProvider, projectId, aiReviewLabel, llmModel, mr, state);
     }
   } catch (error) {
     console.error("MR 처리 중 오류 발생:", error);
@@ -136,8 +164,18 @@ export const processMergeRequests = async (
 };
 
 /**
- * Ollama 모델이 사용 가능한지 확인합니다.
+ * LLM 모델이 사용 가능한지 확인합니다.
  */
-export const checkOllamaAvailability = async (ollamaDeps: OllamaDependencies, model: string): Promise<boolean> => {
-  return ollamaClient.checkModelAvailability(ollamaDeps, model);
+export const checkLLMAvailability = async (
+  llmDeps: LLMDependencies,
+  llmProvider: LLMProvider,
+  model: string
+): Promise<boolean> => {
+  if (llmProvider === LLM_PROVIDERS.OLLAMA) {
+    return ollamaClient.checkModelAvailability(llmDeps as OllamaDependencies, model);
+  } else if (llmProvider === LLM_PROVIDERS.OPENAI) {
+    return openaiClient.checkModelAvailability(llmDeps as OpenAIDependencies, model);
+  } else {
+    return codexClient.checkModelAvailability(llmDeps as CodexDependencies);
+  }
 };

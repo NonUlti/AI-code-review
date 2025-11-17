@@ -1,4 +1,7 @@
-import type { GitLabDependencies, OllamaDependencies } from "./types/dependencies.js";
+import type { GitLabDependencies } from "./types/dependencies.js";
+import type { LLMProvider } from "./types/llm.js";
+import { LLM_PROVIDER_NAMES } from "./constants/llm-providers.js";
+import type { LLMDependencies } from "./services/mr-processor.js";
 import * as mrProcessor from "./services/mr-processor.js";
 
 /**
@@ -29,10 +32,11 @@ export const createScheduler = (intervalSeconds: number): Scheduler => ({
 const runOnce = async (
   scheduler: Scheduler,
   gitlabDeps: GitLabDependencies,
-  ollamaDeps: OllamaDependencies,
+  llmDeps: LLMDependencies,
+  llmProvider: LLMProvider,
   projectId: string,
   aiReviewLabel: string,
-  ollamaModel: string
+  llmModel: string
 ): Promise<void> => {
   if (scheduler.isProcessing) {
     const timestamp = new Date().toLocaleString("ko-KR");
@@ -45,7 +49,7 @@ const runOnce = async (
   console.log(`\n⏰ [${timestamp}] MR 체크 시작`);
 
   try {
-    await mrProcessor.processMergeRequests(gitlabDeps, ollamaDeps, projectId, aiReviewLabel, ollamaModel, scheduler.processingState);
+    await mrProcessor.processMergeRequests(gitlabDeps, llmDeps, llmProvider, projectId, aiReviewLabel, llmModel, scheduler.processingState);
   } catch (error) {
     console.error("처리 중 오류 발생:", error);
   } finally {
@@ -60,10 +64,11 @@ const runOnce = async (
 export const startScheduler = async (
   scheduler: Scheduler,
   gitlabDeps: GitLabDependencies,
-  ollamaDeps: OllamaDependencies,
+  llmDeps: LLMDependencies,
+  llmProvider: LLMProvider,
   projectId: string,
   aiReviewLabel: string,
-  ollamaModel: string
+  llmModel: string
 ): Promise<void> => {
   if (scheduler.isRunning) {
     console.log("⚠️  스케줄러가 이미 실행 중입니다.");
@@ -72,19 +77,19 @@ export const startScheduler = async (
 
   console.log(`\n🚀 스케줄러 시작 (${scheduler.intervalSeconds}초 간격)`);
 
-  const isAvailable = await mrProcessor.checkOllamaAvailability(ollamaDeps, ollamaModel);
+  const isAvailable = await mrProcessor.checkLLMAvailability(llmDeps, llmProvider, llmModel);
 
   if (!isAvailable) {
-    console.error("❌ Ollama 모델을 사용할 수 없습니다. 프로그램을 종료합니다.");
+    console.error(`❌ ${LLM_PROVIDER_NAMES[llmProvider]} 모델을 사용할 수 없습니다. 프로그램을 종료합니다.`);
     process.exit(1);
   }
 
   scheduler.isRunning = true;
 
-  await runOnce(scheduler, gitlabDeps, ollamaDeps, projectId, aiReviewLabel, ollamaModel);
+  await runOnce(scheduler, gitlabDeps, llmDeps, llmProvider, projectId, aiReviewLabel, llmModel);
 
   scheduler.intervalId = setInterval(async () => {
-    await runOnce(scheduler, gitlabDeps, ollamaDeps, projectId, aiReviewLabel, ollamaModel);
+    await runOnce(scheduler, gitlabDeps, llmDeps, llmProvider, projectId, aiReviewLabel, llmModel);
   }, scheduler.intervalSeconds * 1000);
 
   console.log("✓ 스케줄러가 정상적으로 시작되었습니다.");
