@@ -11,6 +11,7 @@ interface Config {
     url: string;
     token: string;
     projectId: string;
+    excludeTargetBranches: string[];
   };
   ollama: {
     url: string;
@@ -70,6 +71,17 @@ const getLLMProvider = (): LLMProvider => {
   return provider as LLMProvider;
 };
 
+const getEnvList = (key: string): string[] => {
+  const value = process.env[key];
+  if (!value) {
+    return [];
+  }
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+};
+
 // Provider를 먼저 결정
 const llmProvider = getLLMProvider();
 
@@ -81,6 +93,7 @@ export const config: Config = {
     url: getEnvVariable("GITLAB_URL", "https://gitlab.com"),
     token: getEnvVariable("GITLAB_TOKEN"),
     projectId: getEnvVariable("GITLAB_PROJECT_ID"),
+    excludeTargetBranches: getEnvList("EXCLUDE_TARGET_BRANCHES"),
   },
   ollama: {
     url: llmProvider === LLM_PROVIDERS.OLLAMA 

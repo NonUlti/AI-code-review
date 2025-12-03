@@ -39,7 +39,12 @@ const checkIfApproved = (mr: MergeRequest): boolean => {
  * AI 리뷰 대상 MR을 조회합니다.
  * 조건: open 상태, ai-review 라벨 없음, approved 안 됨
  */
-export const getTargetMergeRequests = async (deps: GitLabDependencies, projectId: string, aiReviewLabel: string): Promise<MergeRequest[]> => {
+export const getTargetMergeRequests = async (
+  deps: GitLabDependencies,
+  projectId: string,
+  aiReviewLabel: string,
+  excludeTargetBranches: string[]
+): Promise<MergeRequest[]> => {
   try {
     console.log(`  프로젝트 ID: ${projectId}로 MR 조회 중...`);
 
@@ -55,12 +60,20 @@ export const getTargetMergeRequests = async (deps: GitLabDependencies, projectId
     for (const mr of allMRs) {
       const isApproved = checkIfApproved(mr);
       const hasAiReviewLabel = mr.labels.includes(aiReviewLabel);
+      const isExcludedBranch = excludeTargetBranches.includes(mr.target_branch);
 
-      if (!hasAiReviewLabel && !isApproved) {
-        console.log(`  ✓ MR !${mr.iid}: "${mr.title}" - 리뷰 대상 (approved: ${isApproved})`);
+      if (!hasAiReviewLabel && !isApproved && !isExcludedBranch) {
+        console.log(`  ✓ MR !${mr.iid}: "${mr.title}" - 리뷰 대상 (approved: ${isApproved}, target: ${mr.target_branch})`);
         targetMRs.push(mr);
       } else {
-        const reason = hasAiReviewLabel ? "ai-review 라벨 있음" : "이미 approved됨";
+        let reason = "";
+        if (hasAiReviewLabel) {
+          reason = "ai-review 라벨 있음";
+        } else if (isApproved) {
+          reason = "이미 approved됨";
+        } else if (isExcludedBranch) {
+          reason = `제외 대상 브랜치(${mr.target_branch})`;
+        }
         console.log(`  ⏭️  MR !${mr.iid}: "${mr.title}" - ${reason} (건너뜀)`);
       }
     }

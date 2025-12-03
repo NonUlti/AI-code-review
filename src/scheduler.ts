@@ -1,3 +1,4 @@
+import { config } from "./config.js";
 import type { GitLabDependencies } from "./types/dependencies.js";
 import type { LLMProvider } from "./types/llm.js";
 import { LLM_PROVIDER_NAMES } from "./constants/llm-providers.js";
@@ -49,7 +50,16 @@ const runOnce = async (
   console.log(`\n⏰ [${timestamp}] MR 체크 시작`);
 
   try {
-    await mrProcessor.processMergeRequests(gitlabDeps, llmDeps, llmProvider, projectId, aiReviewLabel, llmModel, scheduler.processingState);
+    await mrProcessor.processMergeRequests(
+      gitlabDeps,
+      llmDeps,
+      llmProvider,
+      projectId,
+      aiReviewLabel,
+      config.gitlab.excludeTargetBranches,
+      llmModel,
+      scheduler.processingState
+    );
   } catch (error) {
     console.error("처리 중 오류 발생:", error);
   } finally {

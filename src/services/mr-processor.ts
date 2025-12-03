@@ -135,13 +135,19 @@ export const processMergeRequests = async (
   llmProvider: LLMProvider,
   projectId: string,
   aiReviewLabel: string,
+  excludeTargetBranches: string[],
   llmModel: string,
   state: ProcessingState
 ): Promise<void> => {
   try {
     console.log("\n🔍 AI 리뷰 대상 MR 검색 중...");
 
-    const targetMRs = await gitlabClient.getTargetMergeRequests(gitlabDeps, projectId, aiReviewLabel);
+    const targetMRs = await gitlabClient.getTargetMergeRequests(
+      gitlabDeps,
+      projectId,
+      aiReviewLabel,
+      excludeTargetBranches
+    );
 
     if (targetMRs.length === 0) {
       console.log("ℹ️  처리할 MR이 없습니다.");
