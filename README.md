@@ -1,13 +1,13 @@
 # GitLab MR AI 리뷰 자동화 도구
 
-로컬 Ollama 모델 또는 OpenAI 클라우드 모델을 선택하여 GitLab Merge Request를 자동으로 리뷰하는 도구입니다.
+로컬 Ollama 모델, OpenAI 클라우드 모델, 또는 Codex CLI를 선택하여 GitLab Merge Request를 자동으로 리뷰하는 도구입니다.
 
 > 📖 **빠른 시작**: [GETTING_STARTED.md](./GETTING_STARTED.md) 문서를 참고하세요.
 
 ## 주요 기능
 
 - 🔍 **자동 MR 감지**: 특정 조건에 맞는 MR을 주기적으로 검색
-- 🤖 **AI 코드 리뷰**: Ollama 로컬 모델 또는 OpenAI 클라우드 모델 선택 가능
+- 🤖 **AI 코드 리뷰**: Ollama 로컬 모델, OpenAI 클라우드 모델, 또는 Codex CLI 선택 가능
 - 💬 **자동 코멘트**: 리뷰 결과를 MR에 자동으로 코멘트
 - 🏷️ **라벨 관리**: 리뷰 완료된 MR에 자동으로 라벨 추가
 - 🔄 **스트리밍 지원**: 대용량 MR도 타임아웃 없이 처리
@@ -73,6 +73,26 @@ OpenAI API 키 발급:
 - ❌ API 사용 비용 발생
 - ❌ 인터넷 연결 필요
 - ❌ 데이터가 OpenAI로 전송됨
+
+#### Option C: Codex CLI
+
+OpenAI Codex CLI 설치:
+
+```bash
+# npm으로 설치
+npm install -g @openai/codex
+
+# 또는 특정 경로에 설치 후 CODEX_CLI_PATH로 지정
+```
+
+**장점**:
+- ✅ 별도 서버 불필요
+- ✅ CLI 기반으로 간편한 사용
+- ✅ 터미널 환경에서 바로 실행 가능
+
+**단점**:
+- ❌ Codex CLI 설치 필요
+- ❌ OpenAI API 키 필요 (CLI 내부에서 사용)
 
 ### 2. GitLab Personal Access Token 생성
 
@@ -143,6 +163,28 @@ CHECK_INTERVAL_SECONDS=600
 AI_REVIEW_LABEL=ai-review
 ```
 
+#### Option C: Codex CLI 사용 시
+
+```env
+# LLM Provider
+LLM_PROVIDER=codex
+
+# GitLab Configuration
+GITLAB_URL=https://gitlab.com
+GITLAB_TOKEN=glpat-xxxxxxxxxxxxxxxxxxxxx
+GITLAB_PROJECT_ID=12345678
+
+# Codex Configuration
+CODEX_CLI_PATH=codex
+CODEX_TIMEOUT_SECONDS=600
+
+# Scheduler Configuration
+CHECK_INTERVAL_SECONDS=600
+
+# Label Configuration
+AI_REVIEW_LABEL=ai-review
+```
+
 #### 환경 변수 설명
 
 **공통 설정**:
@@ -162,6 +204,12 @@ AI_REVIEW_LABEL=ai-review
 - `OPENAI_API_KEY`: OpenAI API 키 (필수)
 - `OPENAI_MODEL`: 사용할 OpenAI 모델 (기본: gpt-4)
   - 권장: `gpt-4`, `gpt-4-turbo`, `gpt-3.5-turbo`
+
+**Codex 설정** (`LLM_PROVIDER=codex` 사용 시):
+- `CODEX_CLI_PATH`: Codex CLI 실행 경로 (기본: codex)
+  - PATH에 등록되어 있으면 `codex`만 입력
+  - 특정 경로에 설치했다면 절대 경로 입력 (예: `/usr/local/bin/codex`)
+- `CODEX_TIMEOUT_SECONDS`: CLI 응답 타임아웃(초) (기본: 600)
 
 ## 실행 방법
 
@@ -193,6 +241,7 @@ gitlab-mcp-bridge/
 │   │   ├── gitlab-client.ts         # GitLab API 클라이언트
 │   │   ├── ollama-client.ts         # Ollama API 클라이언트
 │   │   ├── openai-client.ts         # OpenAI API 클라이언트
+│   │   ├── codex-client.ts          # Codex CLI 클라이언트
 │   │   └── mr-processor.ts          # MR 처리 워크플로우
 │   ├── types/
 │   │   ├── dependencies.ts          # 의존성 타입 정의
@@ -240,6 +289,23 @@ ollama create ai-review-model -f Modelfile
 - 프로젝트에 접근 권한이 있는지 확인
 - MR이 필터 조건(open, 리뷰어 존재, approved 안됨, ai-review 라벨 없음)을 만족하는지 확인
 
+### Codex CLI를 찾을 수 없습니다
+
+```bash
+# Codex CLI 설치 확인
+codex --version
+
+# 또는 설치
+npm install -g @openai/codex
+
+# 절대 경로로 설정 (예시)
+CODEX_CLI_PATH=/usr/local/bin/codex
+```
+
+- `CODEX_CLI_PATH`가 올바른 경로인지 확인
+- CLI가 PATH에 등록되어 있는지 확인
+- 권한 문제가 있다면 `chmod +x` 실행
+
 ## v1.x에서 v2.0으로 마이그레이션
 
 v2.0에서는 OpenAI 클라우드 모델 지원이 추가되었습니다. 기존 v1.x 사용자는 다음과 같이 마이그레이션할 수 있습니다:
@@ -267,24 +333,27 @@ OPENAI_MODEL=gpt-4
 
 ### 3. Provider 비교
 
-| 항목 | Ollama | OpenAI |
-|------|--------|--------|
-| 비용 | 무료 | 유료 (사용량 기반) |
-| 설정 | 로컬 서버 필요 | API 키만 필요 |
-| 성능 | GPU 리소스 의존 | 일관된 고성능 |
-| 데이터 | 로컬 처리 | 클라우드 전송 |
-| 인터넷 | 불필요 | 필수 |
+| 항목 | Ollama | OpenAI | Codex CLI |
+|------|--------|--------|-----------|
+| 비용 | 무료 | 유료 (사용량 기반) | 유료 (API 사용량 기반) |
+| 설정 | 로컬 서버 필요 | API 키만 필요 | CLI 설치 필요 |
+| 성능 | GPU 리소스 의존 | 일관된 고성능 | 일관된 고성능 |
+| 데이터 | 로컬 처리 | 클라우드 전송 | 클라우드 전송 |
+| 인터넷 | 불필요 | 필수 | 필수 |
 
 ### 4. 하이브리드 사용
 
-개발 환경에서는 Ollama, 프로덕션에서는 OpenAI를 사용하는 것도 가능합니다:
+개발 환경에서는 Ollama, 프로덕션에서는 OpenAI 또는 Codex를 사용하는 것도 가능합니다:
 
 ```bash
-# 개발
+# 개발 (로컬 Ollama)
 LLM_PROVIDER=ollama npm run dev
 
-# 프로덕션
+# 프로덕션 (OpenAI)
 LLM_PROVIDER=openai npm start
+
+# 프로덕션 (Codex CLI)
+LLM_PROVIDER=codex npm start
 ```
 
 ## 라이선스
