@@ -97,14 +97,20 @@ const MODEL_PRICES: Record<string, { input: number; output: number }> = {
   "gpt-4o-mini": { input: 0.00015, output: 0.0006 },
   // GPT-3.5 계열
   "gpt-3.5-turbo": { input: 0.0005, output: 0.0015 },
+  // GPT-5 계열 (2025년 8월 공식 가격)
+  "gpt-5": { input: 0.00125, output: 0.01 },           // $1.25/$10 per 1M tokens
+  "gpt-5.2": { input: 0.00125, output: 0.01 },
+  "gpt-5.2-codex": { input: 0.00125, output: 0.01 },
+  "gpt-5-mini": { input: 0.00025, output: 0.002 },     // $0.25/$2 per 1M tokens
+  "gpt-5-nano": { input: 0.00005, output: 0.0004 },    // $0.05/$0.40 per 1M tokens
   // o1 계열
   "o1": { input: 0.015, output: 0.06 },
   "o1-mini": { input: 0.003, output: 0.012 },
   "o1-preview": { input: 0.015, output: 0.06 },
   // Ollama (로컬) - 비용 없음
   "ollama": { input: 0, output: 0 },
-  // Codex CLI (ChatGPT Plus 구독 기준) - 참고용 추정값
-  "codex": { input: 0.01, output: 0.03 },
+  // Codex CLI (ChatGPT Plus 구독 기준 - 참고용, 실제 구독제)
+  "codex": { input: 0.00125, output: 0.01 },
 };
 
 /**
