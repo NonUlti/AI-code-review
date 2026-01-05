@@ -7,6 +7,25 @@ import * as ollamaClient from "./ollama-client.js";
 import * as openaiClient from "./openai-client.js";
 import * as codexClient from "./codex-client.js";
 import { buildReviewPrompt } from "../utils/prompt-builder.js";
+import { calculateTokenUsage } from "../utils/token-counter.js";
+import { addUsageEntry } from "../utils/usage-logger.js";
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
+
+/**
+ * AGENTS.md 시스템 프롬프트를 로드합니다.
+ */
+const loadSystemPrompt = (): string | undefined => {
+  const agentsPath = join(process.cwd(), "AGENTS.md");
+  if (existsSync(agentsPath)) {
+    try {
+      return readFileSync(agentsPath, "utf-8");
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+};
 
 /**
  * LLM 클라이언트 타입 (Ollama, OpenAI, 또는 Codex)
@@ -63,6 +82,12 @@ export const processSingleMR = async (
 ): Promise<void> => {
   state.processing.add(mr.iid);
 
+  // MR URL 사용 (GitLab API에서 제공)
+  const mrUrl = mr.web_url;
+  let diffInfo: { fileCount: number; totalSizeBytes: number; totalLines: number } | undefined;
+  let prompt = "";
+  let review = "";
+
   try {
     console.log(`\n📝 MR !${mr.iid} 처리 시작: ${mr.title}`);
 
@@ -77,14 +102,34 @@ export const processSingleMR = async (
 
     // diff 크기 로깅
     const totalDiffSize = changes.reduce((sum, c) => sum + c.diff.length, 0);
+    const totalLines = changes.reduce((sum, c) => sum + c.diff.split('\n').length, 0);
     const sizeInKB = (totalDiffSize / 1024).toFixed(1);
     console.log(`📊 전체 diff 크기: ${sizeInKB}KB`);
 
-    const prompt = buildReviewPrompt(mr, changes);
+    // diff 정보 저장 (로깅용)
+    diffInfo = {
+      fileCount: changes.length,
+      totalSizeBytes: totalDiffSize,
+      totalLines,
+    };
+
+    // 시스템 프롬프트 로드 (AGENTS.md)
+    const systemPrompt = loadSystemPrompt();
+    const promptResult = buildReviewPrompt(mr, changes, systemPrompt);
+    prompt = promptResult.prompt;
+    const { diffSize, overheadSize } = promptResult;
+
+    // 프롬프트 구성 분석 로깅
+    const totalPromptSize = diffSize.characters + overheadSize.characters;
+    const diffRatio = ((diffSize.characters / totalPromptSize) * 100).toFixed(1);
+    console.log(`📋 프롬프트 구성:`);
+    console.log(`  📄 순수 diff: ${diffSize.characters.toLocaleString()}자 (${diffSize.lines}줄) - ${diffRatio}%`);
+    console.log(`  📝 오버헤드 합계: ${overheadSize.characters.toLocaleString()}자 (${overheadSize.lines}줄) - ${(100 - parseFloat(diffRatio)).toFixed(1)}%`);
+    console.log(`     └─ 시스템 프롬프트 (AGENTS.md): ${overheadSize.breakdown.systemPrompt.characters.toLocaleString()}자 (${overheadSize.breakdown.systemPrompt.lines}줄)`);
+    console.log(`     └─ MR 헤더: ${overheadSize.breakdown.mrHeader.characters.toLocaleString()}자 (${overheadSize.breakdown.mrHeader.lines}줄)`);
 
     console.log(`🔄 스트리밍 모드로 AI 리뷰 요청 중...`);
     
-    let review: string;
     if (llmProvider === LLM_PROVIDERS.OLLAMA) {
       review = await ollamaClient.queryOllamaModelStream(
         llmDeps as OllamaDependencies,
@@ -109,9 +154,41 @@ export const processSingleMR = async (
 
     await gitlabClient.addComment(gitlabDeps, projectId, mr.iid, review);
 
+    // 토큰 사용량 계산 및 로깅
+    const tokenUsage = calculateTokenUsage(prompt, review, llmModel);
+    const logEntry = addUsageEntry({
+      mrTitle: mr.title,
+      mrUrl,
+      projectId,
+      mrIid: mr.iid,
+      model: llmModel,
+      provider: llmProvider,
+      tokenUsage,
+      status: "success",
+      diffInfo,
+    });
+
+    console.log(`💰 예상 비용: $${logEntry.estimatedCostUSD.toFixed(4)} (₩${logEntry.estimatedCostKRW.toLocaleString()})`);
     console.log(`✅ MR !${mr.iid} 처리 완료\n`);
   } catch (error) {
     console.error(`❌ MR !${mr.iid} 처리 실패:`, error);
+
+    // 실패 시에도 사용량 기록 (토큰 추정치)
+    if (prompt) {
+      const errorTokenUsage = calculateTokenUsage(prompt, "", llmModel);
+      addUsageEntry({
+        mrTitle: mr.title,
+        mrUrl,
+        projectId,
+        mrIid: mr.iid,
+        model: llmModel,
+        provider: llmProvider,
+        tokenUsage: errorTokenUsage,
+        status: "failed",
+        errorMessage: error instanceof Error ? error.message : String(error),
+        diffInfo,
+      });
+    }
 
     if (error instanceof Error) {
       await handleProcessingError(gitlabDeps, projectId, mr.iid, error);

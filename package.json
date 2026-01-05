@@ -8,7 +8,11 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "stats": "tsx src/usage-stats.ts",
+    "stats:daily": "tsx src/usage-stats.ts --daily",
+    "stats:recent": "tsx src/usage-stats.ts --recent 20",
+    "stats:export": "tsx src/usage-stats.ts --export"
   },
   "keywords": [
     "gitlab",
@@ -24,7 +28,8 @@
     "dotenv": "^16.4.5",
     "node-cron": "^3.0.3",
     "ollama": "^0.5.9",
-    "openai": "^6.8.1"
+    "openai": "^6.8.1",
+    "tiktoken": "^1.0.22"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

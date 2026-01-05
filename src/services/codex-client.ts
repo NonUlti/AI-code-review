@@ -1,5 +1,6 @@
 import { spawn } from "child_process";
 import type { CodexDependencies } from "../types/dependencies.js";
+import { calculateTokenUsage, logTokenUsage, estimateCost } from "../utils/token-counter.js";
 
 /**
  * Codex CLI 의존성을 생성합니다.
@@ -84,7 +85,14 @@ export const queryCodexModelStream = async (
         }
 
         console.log("✓ Codex CLI 응답 수신 완료");
-        resolve(stdout.trim());
+        
+        // 토큰 사용량 계산 및 출력
+        const response = stdout.trim();
+        const tokenUsage = calculateTokenUsage(prompt, response);
+        logTokenUsage(tokenUsage);
+        console.log(`  💰 ${estimateCost(tokenUsage)}`);
+        
+        resolve(response);
       });
 
       // 프로세스 오류 처리
