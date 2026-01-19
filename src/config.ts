@@ -1,5 +1,12 @@
 import dotenv from "dotenv";
 import { LLM_PROVIDERS, type LLMProvider } from "./constants/llm-providers.js";
+import {
+  CODEX_CLI_PATH,
+  CODEX_TIMEOUT_SECONDS,
+  OLLAMA_TIMEOUT_SECONDS,
+  CHECK_INTERVAL_SECONDS,
+  AI_REVIEW_LABEL,
+} from "./constants/defaults.js";
 
 dotenv.config();
 
@@ -11,7 +18,6 @@ interface Config {
     url: string;
     token: string;
     projectId: string;
-    excludeTargetBranches: string[];
   };
   ollama: {
     url: string;
@@ -27,12 +33,6 @@ interface Config {
     cliPath: string;
     timeoutSeconds: number;
   };
-  scheduler: {
-    intervalSeconds: number;
-  };
-  labels: {
-    aiReview: string;
-  };
 }
 
 const getEnvVariable = (key: string, defaultValue?: string): string => {
@@ -45,21 +45,6 @@ const getEnvVariable = (key: string, defaultValue?: string): string => {
   return value;
 };
 
-const getEnvNumber = (key: string, defaultValue: number): number => {
-  const value = process.env[key];
-
-  if (!value) {
-    return defaultValue;
-  }
-
-  const parsed = parseInt(value, 10);
-
-  if (isNaN(parsed)) {
-    throw new Error(`환경 변수 ${key}는 숫자여야 합니다.`);
-  }
-
-  return parsed;
-};
 
 const getLLMProvider = (): LLMProvider => {
   const provider = process.env.LLM_PROVIDER || LLM_PROVIDERS.OLLAMA;
@@ -71,16 +56,6 @@ const getLLMProvider = (): LLMProvider => {
   return provider as LLMProvider;
 };
 
-const getEnvList = (key: string): string[] => {
-  const value = process.env[key];
-  if (!value) {
-    return [];
-  }
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
-};
 
 // Provider를 먼저 결정
 const llmProvider = getLLMProvider();
@@ -93,7 +68,6 @@ export const config: Config = {
     url: getEnvVariable("GITLAB_URL", "https://gitlab.com"),
     token: getEnvVariable("GITLAB_TOKEN"),
     projectId: getEnvVariable("GITLAB_PROJECT_ID"),
-    excludeTargetBranches: getEnvList("EXCLUDE_TARGET_BRANCHES"),
   },
   ollama: {
     url: llmProvider === LLM_PROVIDERS.OLLAMA 
@@ -102,9 +76,7 @@ export const config: Config = {
     model: llmProvider === LLM_PROVIDERS.OLLAMA
       ? getEnvVariable("OLLAMA_MODEL", "ai-review-model")
       : "ai-review-model",
-    timeoutSeconds: llmProvider === LLM_PROVIDERS.OLLAMA
-      ? getEnvNumber("OLLAMA_TIMEOUT_SECONDS", 600)
-      : 600,
+    timeoutSeconds: OLLAMA_TIMEOUT_SECONDS,
   },
   openai: {
     apiKey: llmProvider === LLM_PROVIDERS.OPENAI
@@ -118,18 +90,8 @@ export const config: Config = {
       : "gpt-4",
   },
   codex: {
-    cliPath: llmProvider === LLM_PROVIDERS.CODEX
-      ? getEnvVariable("CODEX_CLI_PATH", "codex")
-      : "codex",
-    timeoutSeconds: llmProvider === LLM_PROVIDERS.CODEX
-      ? getEnvNumber("CODEX_TIMEOUT_SECONDS", 600)
-      : 600,
-  },
-  scheduler: {
-    intervalSeconds: getEnvNumber("CHECK_INTERVAL_SECONDS", 600),
-  },
-  labels: {
-    aiReview: getEnvVariable("AI_REVIEW_LABEL", "ai-review"),
+    cliPath: CODEX_CLI_PATH,
+    timeoutSeconds: CODEX_TIMEOUT_SECONDS,
   },
 };
 
@@ -153,6 +115,6 @@ export const validateConfig = (): void => {
     console.log(`  - Codex Timeout: ${config.codex.timeoutSeconds}초`);
   }
   
-  console.log(`  - Check Interval: ${config.scheduler.intervalSeconds}초`);
-  console.log(`  - AI Review Label: ${config.labels.aiReview}`);
+  console.log(`  - Check Interval: ${CHECK_INTERVAL_SECONDS}초`);
+  console.log(`  - AI Review Label: ${AI_REVIEW_LABEL}`);
 };

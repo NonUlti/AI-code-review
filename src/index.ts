@@ -1,5 +1,6 @@
 import { validateConfig, config } from "./config.js";
 import { LLM_PROVIDERS, LLM_PROVIDER_NAMES } from "./constants/llm-providers.js";
+import { CHECK_INTERVAL_SECONDS, AI_REVIEW_LABEL } from "./constants/defaults.js";
 import * as gitlabClient from "./services/gitlab-client.js";
 import * as ollamaClient from "./services/ollama-client.js";
 import * as openaiClient from "./services/openai-client.js";
@@ -45,7 +46,7 @@ const main = async (): Promise<void> => {
     }
 
     // 스케줄러 생성
-    const schedulerInstance = scheduler.createScheduler(config.scheduler.intervalSeconds);
+    const schedulerInstance = scheduler.createScheduler(CHECK_INTERVAL_SECONDS);
 
     // Graceful shutdown 설정
     scheduler.setupGracefulShutdown(schedulerInstance);
@@ -57,7 +58,7 @@ const main = async (): Promise<void> => {
       llmDeps,
       config.llm.provider,
       config.gitlab.projectId,
-      config.labels.aiReview,
+      AI_REVIEW_LABEL,
       llmModel
     );
   } catch (error) {
