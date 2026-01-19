@@ -13,17 +13,23 @@ import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 
 /**
- * AGENTS.md 시스템 프롬프트를 로드합니다.
+ * 시스템 프롬프트를 로드합니다.
+ * AGENTS_FILE 환경 변수로 파일 경로 지정 가능 (기본값: AGENTS.md)
  */
 const loadSystemPrompt = (): string | undefined => {
-  const agentsPath = join(process.cwd(), "AGENTS.md");
+  const agentsFile = process.env.AGENTS_FILE || "AGENTS.md";
+  const agentsPath = join(process.cwd(), agentsFile);
+  
   if (existsSync(agentsPath)) {
     try {
+      console.log(`📜 프롬프트 파일 로드: ${agentsFile}`);
       return readFileSync(agentsPath, "utf-8");
     } catch {
+      console.warn(`⚠️ 프롬프트 파일 읽기 실패: ${agentsFile}`);
       return undefined;
     }
   }
+  console.warn(`⚠️ 프롬프트 파일 없음: ${agentsFile}`);
   return undefined;
 };
 

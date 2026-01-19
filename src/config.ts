@@ -8,7 +8,11 @@ import {
   AI_REVIEW_LABEL,
 } from "./constants/defaults.js";
 
-dotenv.config();
+// ENV_FILE 환경 변수로 .env 파일 경로 지정 가능
+// 예: ENV_FILE=.env.front-end.sooplive_web yarn dev
+const envFile = process.env.ENV_FILE || '.env';
+dotenv.config({ path: envFile });
+console.log(`📁 환경 변수 파일 로드: ${envFile}`);
 
 interface Config {
   llm: {
