@@ -70,11 +70,19 @@ export interface UsageLog {
 
 /**
  * 로그 디렉토리 경로
+ * LOG_DIR 환경 변수로 프로젝트별 로그 디렉토리 지정 가능
+ * 예: LOG_DIR=front-end-sooplive_web → data/log/front-end-sooplive_web/
  */
-const LOG_BASE_DIR = join(process.cwd(), "data", "log");
+const LOG_PROJECT_DIR = process.env.LOG_DIR || "";
+const LOG_BASE_DIR = LOG_PROJECT_DIR 
+  ? join(process.cwd(), "data", "log", LOG_PROJECT_DIR)
+  : join(process.cwd(), "data", "log");
 const MONTHLY_DIR = join(LOG_BASE_DIR, "monthly");
 const DAILY_DIR = join(LOG_BASE_DIR, "daily");
 const ALL_ENTRIES_PATH = join(LOG_BASE_DIR, "all-entries.json");
+
+// 로그 디렉토리 정보 출력 (첫 로드 시)
+console.log(`📂 로그 디렉토리: data/log${LOG_PROJECT_DIR ? `/${LOG_PROJECT_DIR}` : ""}`);
 
 /**
  * 요일 이름 매핑 (한국어)
