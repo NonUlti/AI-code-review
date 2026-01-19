@@ -213,6 +213,7 @@ export const processMergeRequests = async (
   projectId: string,
   aiReviewLabel: string,
   excludeTargetBranches: string[],
+  excludeTargetBranchPatterns: string[],
   llmModel: string,
   state: ProcessingState
 ): Promise<void> => {
@@ -223,7 +224,8 @@ export const processMergeRequests = async (
       gitlabDeps,
       projectId,
       aiReviewLabel,
-      excludeTargetBranches
+      excludeTargetBranches,
+      excludeTargetBranchPatterns
     );
 
     if (targetMRs.length === 0) {

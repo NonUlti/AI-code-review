@@ -1,7 +1,8 @@
-import { config } from "./config.js";
+
 import type { GitLabDependencies } from "./types/dependencies.js";
 import type { LLMProvider } from "./types/llm.js";
 import { LLM_PROVIDER_NAMES } from "./constants/llm-providers.js";
+import { EXCLUDE_TARGET_BRANCHES, EXCLUDE_TARGET_BRANCH_PATTERNS } from "./constants/branch-filters.js";
 import type { LLMDependencies } from "./services/mr-processor.js";
 import * as mrProcessor from "./services/mr-processor.js";
 
@@ -56,7 +57,8 @@ const runOnce = async (
       llmProvider,
       projectId,
       aiReviewLabel,
-      config.gitlab.excludeTargetBranches,
+      EXCLUDE_TARGET_BRANCHES,
+      EXCLUDE_TARGET_BRANCH_PATTERNS,
       llmModel,
       scheduler.processingState
     );

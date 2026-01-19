@@ -36,6 +36,31 @@ const checkIfApproved = (mr: MergeRequest): boolean => {
 };
 
 /**
+ * 브랜치가 제외 대상인지 확인합니다.
+ * - exactMatches: 정확히 일치하는 브랜치명 (예: "develop", "prod")
+ * - patterns: 브랜치명에 포함되어 있으면 제외 (예: "release" -> "release-1.6.51" 제외)
+ */
+const isExcludedTargetBranch = (
+  targetBranch: string,
+  exactMatches: string[],
+  patterns: string[]
+): { excluded: boolean; reason?: string } => {
+  // 정확한 브랜치명 매칭
+  if (exactMatches.includes(targetBranch)) {
+    return { excluded: true, reason: `제외 대상 브랜치(${targetBranch})` };
+  }
+
+  // 패턴 매칭 (브랜치명에 패턴이 포함되어 있는지)
+  for (const pattern of patterns) {
+    if (targetBranch.includes(pattern)) {
+      return { excluded: true, reason: `제외 패턴 매칭(${pattern} in ${targetBranch})` };
+    }
+  }
+
+  return { excluded: false };
+};
+
+/**
  * AI 리뷰 대상 MR을 조회합니다.
  * 조건: open 상태, ai-review 라벨 없음, approved 안 됨
  */
@@ -43,7 +68,8 @@ export const getTargetMergeRequests = async (
   deps: GitLabDependencies,
   projectId: string,
   aiReviewLabel: string,
-  excludeTargetBranches: string[]
+  excludeTargetBranches: string[],
+  excludeTargetBranchPatterns: string[] = []
 ): Promise<MergeRequest[]> => {
   try {
     console.log(`  프로젝트 ID: ${projectId}로 MR 조회 중...`);
@@ -60,9 +86,13 @@ export const getTargetMergeRequests = async (
     for (const mr of allMRs) {
       const isApproved = checkIfApproved(mr);
       const hasAiReviewLabel = mr.labels.includes(aiReviewLabel);
-      const isExcludedBranch = excludeTargetBranches.includes(mr.target_branch);
+      const branchExclusion = isExcludedTargetBranch(
+        mr.target_branch,
+        excludeTargetBranches,
+        excludeTargetBranchPatterns
+      );
 
-      if (!hasAiReviewLabel && !isApproved && !isExcludedBranch) {
+      if (!hasAiReviewLabel && !isApproved && !branchExclusion.excluded) {
         console.log(`  ✓ MR !${mr.iid}: "${mr.title}" - 리뷰 대상 (approved: ${isApproved}, target: ${mr.target_branch})`);
         targetMRs.push(mr);
       } else {
@@ -71,8 +101,8 @@ export const getTargetMergeRequests = async (
           reason = "ai-review 라벨 있음";
         } else if (isApproved) {
           reason = "이미 approved됨";
-        } else if (isExcludedBranch) {
-          reason = `제외 대상 브랜치(${mr.target_branch})`;
+        } else if (branchExclusion.excluded) {
+          reason = branchExclusion.reason!;
         }
         console.log(`  ⏭️  MR !${mr.iid}: "${mr.title}" - ${reason} (건너뜀)`);
       }
