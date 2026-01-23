@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "dev:soop:front-end:sooplive_web": "ENV_FILE=.env.soop.front-end.sooplive_web tsx watch src/index.ts",
-    "dev:soop_kr:translation": "ENV_FILE=.env.soop_kr.translation tsx watch src/index.ts",
+    "dev:soop:front-end:sooplive_web": "ENV_FILE=.env.soop.front-end.sooplive_web AGENTS_FILE=AGENTS.front-end.sooplive_web.md tsx watch src/index.ts",
+    "dev:soop_kr:translation": "ENV_FILE=.env.soop_kr.translation AGENTS_FILE=AGENTS.soop_kr.translation.md tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "type-check": "tsc --noEmit",
