@@ -68,7 +68,7 @@ export const buildReviewPrompt = (
 # 코드 변경사항
 `;
 
-  const prompt = mrHeader + formattedChanges;
+  const prompt = `${systemPrompt ? `${systemPrompt}\n\n` : ""}${mrHeader}${formattedChanges}`;
 
   // 순수 diff 크기 (formattedChanges에서 파일 경로/구분선 등도 포함됨)
   const diffCharacters = formattedChanges.length;

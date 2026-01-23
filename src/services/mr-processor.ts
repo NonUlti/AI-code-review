@@ -16,8 +16,7 @@ import { join } from "path";
  * 시스템 프롬프트를 로드합니다.
  * AGENTS_FILE 환경 변수로 파일 경로 지정 가능 (기본값: AGENTS.md)
  */
-const loadSystemPrompt = (): string | undefined => {
-  const agentsFile = process.env.AGENTS_FILE || "AGENTS.md";
+const loadSystemPrompt = (agentsFile = process.env.AGENTS_FILE || "AGENTS.md"): string | undefined => {
   const agentsPath = join(process.cwd(), agentsFile);
   
   if (existsSync(agentsPath)) {
@@ -120,7 +119,8 @@ export const processSingleMR = async (
     };
 
     // 시스템 프롬프트 로드 (AGENTS.md)
-    const systemPrompt = loadSystemPrompt();
+    const agentsFile = process.env.AGENTS_FILE || "AGENTS.md";
+    const systemPrompt = loadSystemPrompt(agentsFile);
     const promptResult = buildReviewPrompt(mr, changes, systemPrompt);
     prompt = promptResult.prompt;
     const { diffSize, overheadSize } = promptResult;
@@ -131,7 +131,7 @@ export const processSingleMR = async (
     console.log(`📋 프롬프트 구성:`);
     console.log(`  📄 순수 diff: ${diffSize.characters.toLocaleString()}자 (${diffSize.lines}줄) - ${diffRatio}%`);
     console.log(`  📝 오버헤드 합계: ${overheadSize.characters.toLocaleString()}자 (${overheadSize.lines}줄) - ${(100 - parseFloat(diffRatio)).toFixed(1)}%`);
-    console.log(`     └─ 시스템 프롬프트 (AGENTS.md): ${overheadSize.breakdown.systemPrompt.characters.toLocaleString()}자 (${overheadSize.breakdown.systemPrompt.lines}줄)`);
+    console.log(`     └─ 시스템 프롬프트 (${agentsFile}): ${overheadSize.breakdown.systemPrompt.characters.toLocaleString()}자 (${overheadSize.breakdown.systemPrompt.lines}줄)`);
     console.log(`     └─ MR 헤더: ${overheadSize.breakdown.mrHeader.characters.toLocaleString()}자 (${overheadSize.breakdown.mrHeader.lines}줄)`);
 
     console.log(`🔄 스트리밍 모드로 AI 리뷰 요청 중...`);
