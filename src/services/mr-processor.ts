@@ -2,6 +2,7 @@ import type { GitLabDependencies, OllamaDependencies, OpenAIDependencies, CodexD
 import type { MergeRequest } from "../types/gitlab.js";
 import type { LLMProvider } from "../types/llm.js";
 import { LLM_PROVIDERS } from "../constants/llm-providers.js";
+import { EXCLUDE_TARGET_BRANCHES, EXCLUDE_TARGET_BRANCH_PATTERNS } from "../constants/branch-filters.js";
 import * as gitlabClient from "./gitlab-client.js";
 import * as ollamaClient from "./ollama-client.js";
 import * as openaiClient from "./openai-client.js";
@@ -269,4 +270,52 @@ export const checkLLMAvailability = async (
   } else {
     return codexClient.checkModelAvailability(llmDeps as CodexDependencies);
   }
+};
+
+/**
+ * Webhook에서 MR ID로 직접 처리를 요청합니다.
+ */
+export const processMergeRequestById = async (
+  gitlabDeps: GitLabDependencies,
+  llmDeps: LLMDependencies,
+  llmProvider: LLMProvider,
+  projectId: string,
+  aiReviewLabel: string,
+  llmModel: string,
+  mrIid: number,
+  state: ProcessingState
+): Promise<{ success: boolean; message: string }> => {
+  // 이미 처리 중인지 확인
+  if (state.processing.has(mrIid)) {
+    return { success: false, message: `MR !${mrIid}는 이미 처리 중입니다.` };
+  }
+
+  // MR 조회
+  const mr = await gitlabClient.getMergeRequestById(gitlabDeps, projectId, mrIid);
+
+  if (!mr) {
+    return { success: false, message: `MR !${mrIid}를 찾을 수 없습니다.` };
+  }
+
+  // MR 상태 확인
+  if (mr.state !== "opened") {
+    return { success: false, message: `MR !${mrIid}는 열린 상태가 아닙니다. (현재: ${mr.state})` };
+  }
+
+  // 리뷰 대상인지 확인
+  const targetCheck = gitlabClient.isReviewTarget(
+    mr,
+    aiReviewLabel,
+    EXCLUDE_TARGET_BRANCHES,
+    EXCLUDE_TARGET_BRANCH_PATTERNS
+  );
+
+  if (!targetCheck.isTarget) {
+    return { success: false, message: `MR !${mrIid}는 리뷰 대상이 아닙니다. (${targetCheck.reason})` };
+  }
+
+  // 처리 시작
+  await processSingleMR(gitlabDeps, llmDeps, llmProvider, projectId, aiReviewLabel, llmModel, mr, state);
+
+  return { success: true, message: `MR !${mrIid} 처리 완료` };
 };
