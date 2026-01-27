@@ -14,13 +14,11 @@ export const CODEX_TIMEOUT_SECONDS = 600;
 export const OLLAMA_TIMEOUT_SECONDS = 600;
 
 /**
+ * 스케줄러 설정
+ */
+export const CHECK_INTERVAL_SECONDS = 60;
+
+/**
  * 라벨 설정
  */
 export const AI_REVIEW_LABEL = "ai-review";
-
-/**
- * Webhook 서버 설정
- */
-export const WEBHOOK_PORT = 3000;
-export const WEBHOOK_HOST = "0.0.0.0";
-

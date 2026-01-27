@@ -6,8 +6,6 @@ export interface MergeRequest {
   web_url: string;
   labels: string[];
   state: string;
-  source_branch: string;
-  target_branch: string;
   has_conflicts: boolean;
   merge_status?: string;
   detailed_merge_status?: string;

@@ -2,9 +2,9 @@
 
 ## 빠른 시작
 
-### 1. LLM Provider 준비
+### 1. Ollama 모델 준비
 
-#### Option A: Ollama (로컬 모델)
+먼저 Ollama가 설치되어 있고 `ai-review-model` 모델이 생성되어 있어야 합니다.
 
 ```bash
 # Ollama 서버 시작
@@ -18,25 +18,38 @@ ollama serve
 ollama list | grep ai-review-model
 ```
 
-모델이 없다면 생성:
+모델이 없다면 생성해야 합니다:
 
 ```bash
 # 기본 모델 다운로드
 ollama pull gpt-oss-20b
 
+# Modelfile 생성 (예시)
+cat > Modelfile << 'EOF'
+FROM gpt-oss-20b
+
+SYSTEM """
+당신은 코드 리뷰 전문가입니다.
+GitLab Merge Request의 변경사항을 분석하고 다음 형식으로 리뷰를 제공합니다:
+
+## 📋 변경 사항 요약
+- 변경된 파일 개수와 주요 변경 내용
+
+## 🔍 코드 리뷰
+- 좋은 점
+- 개선이 필요한 점
+- 잠재적 버그나 이슈
+
+## 💡 제안사항
+- 구체적인 개선 방향
+
+리뷰는 건설적이고 명확하게 작성하세요.
+"""
+EOF
+
 # 커스텀 모델 생성
 ollama create ai-review-model -f Modelfile
 ```
-
-#### Option B: OpenAI (클라우드 모델)
-
-1. https://platform.openai.com/api-keys 에서 API 키 발급
-2. `.env`에 설정:
-   ```env
-   LLM_PROVIDER=openai
-   OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
-   OPENAI_MODEL=gpt-4
-   ```
 
 ### 2. GitLab 설정
 
@@ -45,24 +58,29 @@ ollama create ai-review-model -f Modelfile
 1. GitLab에 로그인
 2. Settings > Access Tokens 메뉴로 이동
 3. 새 토큰 생성:
-   - Name: `gitlab-mcp-bridge`
+   - Name: `gitlab-mcp-bridge` (원하는 이름)
    - Scopes:
      - ✅ `api`
      - ✅ `read_api`
      - ✅ `write_repository`
-4. 생성된 토큰을 복사 (한 번만 표시됨)
+4. 생성된 토큰을 안전한 곳에 복사 (한 번만 표시됨)
 
 #### 프로젝트 ID 찾기
 
 GitLab 프로젝트 페이지에서:
+
 - Settings > General로 이동
 - Project ID를 확인
+
+또는 프로젝트 URL에서:
+
+- `https://gitlab.com/username/project` → API에서 프로젝트 ID 확인
 
 ### 3. 환경 변수 설정
 
 ```bash
 # .env 파일 생성
-cp .env.example .env
+cp .env
 
 # .env 파일 편집
 vi .env
@@ -71,39 +89,21 @@ vi .env
 `.env` 예시:
 
 ```env
-# LLM Provider (ollama, openai, codex 중 선택)
-LLM_PROVIDER=ollama
-
-# GitLab
 GITLAB_URL=https://gitlab.com
 GITLAB_TOKEN=glpat-xxxxxxxxxxxxxxxxxxxx
 GITLAB_PROJECT_ID=12345678
 
-# Webhook Server
-WEBHOOK_PORT=3000
-WEBHOOK_HOST=0.0.0.0
-WEBHOOK_SECRET=your-secret-token
-
-# Ollama (LLM_PROVIDER=ollama 사용 시)
 OLLAMA_URL=http://localhost:11434
 OLLAMA_MODEL=ai-review-model
+
+CHECK_INTERVAL_SECONDS=10
+
+AI_REVIEW_LABEL=ai-review
 ```
 
-### 4. GitLab Webhook 설정
-
-1. GitLab 프로젝트 → **Settings** → **Webhooks**
-2. 설정:
-   - **URL**: `http://<your-server>:3000/webhook/gitlab`
-   - **Secret Token**: `.env`의 `WEBHOOK_SECRET`과 동일한 값
-   - **Trigger**: ✅ Merge request events
-3. **Add webhook** 클릭
-
-### 5. 실행
+### 4. 실행
 
 ```bash
-# 의존성 설치
-npm install
-
 # 개발 모드로 실행 (권장)
 npm run dev
 
@@ -120,82 +120,45 @@ npm start
 ╔════════════════════════════════════════════════════════╗
 ║       GitLab MR AI 리뷰 자동화 도구                        ║
 ║       Powered by Ollama ai-review-model                ║
-║       Mode: Webhook Server                                ║
 ╚════════════════════════════════════════════════════════╝
 
 ✓ 설정 검증 완료:
-  - LLM Provider: ollama
   - GitLab URL: https://gitlab.com
   - GitLab Project ID: 12345678
   - Ollama URL: http://localhost:11434
   - Ollama Model: ai-review-model
-  - Webhook Port: 3000
-  - Webhook Secret: 설정됨
+  - Check Interval: 600초
+  - AI Review Label: ai-review
 
-🔍 Ollama 모델 확인 중...
-✓ Ollama 모델 사용 가능
+🚀 스케줄러 시작 (600초 간격)
 
-🌐 Webhook 서버 시작됨
-   - 주소: http://0.0.0.0:3000
-   - Webhook URL: http://<your-domain>:3000/webhook/gitlab
-   - Health Check: http://0.0.0.0:3000/health
+⏰ [2024-10-15 16:53:44] MR 체크 시작
 
-✓ 서버가 정상적으로 시작되었습니다.
-  Ctrl+C를 눌러 종료할 수 있습니다.
-```
-
-Webhook이 수신되면:
-
-```
-⏰ [2024-10-15 16:53:44] Webhook 요청 수신
-   ✓ Webhook Secret 검증 성공
-
-🔔 Webhook 수신: MR !123 - open
-   제목: feat: 새로운 기능 추가
-   상태: opened
-   브랜치: feature/new-feature → main
-   ✓ 처리 시작...
+🔍 AI 리뷰 대상 MR 검색 중...
+✓ 2개의 MR 발견
 
 📝 MR !123 처리 시작: feat: 새로운 기능 추가
 ✓ 3개의 파일 변경 발견
-🔄 스트리밍 모드로 AI 리뷰 요청 중...
+🤖 ai-review-model 모델에 질의 중...
+✓ 모델 응답 수신 완료
 ✓ MR !123에 코멘트 추가 완료
 ✓ MR !123에 라벨 "ai-review" 추가 완료
 ✅ MR !123 처리 완료
 ```
 
-## 테스트
+## 테스트 MR 만들기
 
-### 로컬 개발 시 Webhook 테스트 (ngrok 사용)
-
-```bash
-# ngrok 설치
-brew install ngrok
-
-# 로컬 서버를 외부에 노출
-ngrok http 3000
-
-# ngrok이 제공하는 URL을 GitLab Webhook에 등록
-# 예: https://abc123.ngrok.io/webhook/gitlab
-```
-
-### 테스트 MR 만들기
+실제로 동작하는지 확인하려면:
 
 1. GitLab 프로젝트에서 테스트 브랜치 생성
 2. 간단한 코드 변경 후 커밋
 3. Merge Request 생성:
+   - 리뷰어를 한 명 이상 지정
    - `ai-review` 라벨이 없는지 확인
-   - Draft/WIP가 아닌지 확인
-4. Webhook이 자동으로 트리거되어 AI 리뷰 추가
+4. MR을 Approve하지 않은 상태로 유지
+5. 프로그램이 다음 주기에 자동으로 리뷰 추가
 
 ## 문제 해결
-
-### Webhook이 도착하지 않음
-
-- 서버가 외부에서 접근 가능한지 확인
-- 방화벽/포트 설정 확인
-- GitLab Webhook 페이지에서 "Test" 버튼으로 테스트
-- Recent deliveries에서 에러 확인
 
 ### Ollama 연결 실패
 
@@ -204,6 +167,7 @@ ngrok http 3000
 ```
 
 해결:
+
 - `ollama serve` 실행 확인
 - `OLLAMA_URL` 환경 변수 확인
 - `ollama list`로 모델 존재 확인
@@ -215,26 +179,27 @@ ngrok http 3000
 ```
 
 해결:
+
 - `GITLAB_TOKEN`이 올바른지 확인
 - 토큰 권한 확인 (`api`, `write_repository`)
 - 토큰이 만료되지 않았는지 확인
 
-### Secret 검증 실패
+### MR을 찾을 수 없음
 
 ```
-❌ Webhook Secret 검증 실패
+ℹ️  처리할 MR이 없습니다.
 ```
 
-해결:
-- GitLab Webhook의 Secret Token과 `.env`의 `WEBHOOK_SECRET`이 일치하는지 확인
+확인:
+
+- MR이 `open` 상태인가?
+- 리뷰어가 지정되어 있나?
+- `ai-review` 라벨이 이미 있지 않나?
+- Approved 되지 않았나?
 
 ## 다음 단계
 
-- 프롬프트 커스터마이징 (`AGENTS.md` 수정)
-- 브랜치 필터 조정 (`src/constants/branch-filters.ts`)
-- 멀티 프로젝트 설정 (환경 파일 분리)
-
-### 더 알아보기
-
-- 📖 [USAGE_GUIDE.md](./USAGE_GUIDE.md) - 상세 사용 가이드
-- 📖 [README.md](./README.md) - 전체 프로젝트 문서
+- 실제 프로젝트에 적용
+- 프롬프트 커스터마이징
+- 체크 간격 조정
+- 추가 필터 조건 구현

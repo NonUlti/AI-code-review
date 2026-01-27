@@ -4,9 +4,8 @@ import {
   CODEX_CLI_PATH,
   CODEX_TIMEOUT_SECONDS,
   OLLAMA_TIMEOUT_SECONDS,
+  CHECK_INTERVAL_SECONDS,
   AI_REVIEW_LABEL,
-  WEBHOOK_PORT,
-  WEBHOOK_HOST,
 } from "./constants/defaults.js";
 
 // ENV_FILE 환경 변수로 .env 파일 경로 지정 가능
@@ -37,11 +36,6 @@ interface Config {
   codex: {
     cliPath: string;
     timeoutSeconds: number;
-  };
-  webhook: {
-    port: number;
-    host: string;
-    secret: string;
   };
 }
 
@@ -103,11 +97,6 @@ export const config: Config = {
     cliPath: CODEX_CLI_PATH,
     timeoutSeconds: CODEX_TIMEOUT_SECONDS,
   },
-  webhook: {
-    port: parseInt(process.env.WEBHOOK_PORT || String(WEBHOOK_PORT), 10),
-    host: process.env.WEBHOOK_HOST || WEBHOOK_HOST,
-    secret: process.env.WEBHOOK_SECRET || "",
-  },
 };
 
 export const validateConfig = (): void => {
@@ -129,8 +118,7 @@ export const validateConfig = (): void => {
     console.log(`  - Codex CLI Path: ${config.codex.cliPath}`);
     console.log(`  - Codex Timeout: ${config.codex.timeoutSeconds}초`);
   }
-
-  console.log(`  - Webhook Port: ${config.webhook.port}`);
-  console.log(`  - Webhook Secret: ${config.webhook.secret ? "설정됨" : "미설정 (보안 경고!)"}`);
+  
+  console.log(`  - Check Interval: ${CHECK_INTERVAL_SECONDS}초`);
   console.log(`  - AI Review Label: ${AI_REVIEW_LABEL}`);
 };
